@@ -1,0 +1,134 @@
+name: cardprocess-card-processing
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cardprocess-postgres
+    environment:
+      POSTGRES_USER: cardprocess
+      POSTGRES_PASSWORD: cardprocess
+      POSTGRES_DB: cardprocess
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardprocess -d cardprocess"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: cardprocess-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  localstack:
+    image: localstack/localstack:3.8
+    container_name: cardprocess-localstack
+    environment:
+      SERVICES: sqs
+      DEBUG: "0"
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./infra/localstack/init-sqs.sh:/etc/localstack/init/ready.d/init-sqs.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal sqs get-queue-url --queue-name card-issuance-queue || exit 1"]
+      interval: 6s
+      timeout: 5s
+      retries: 25
+
+  produto-service:
+    build:
+      context: .
+      dockerfile: produto-service/Dockerfile
+    container_name: cardprocess-produto-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/produto_db
+      SPRING_DATASOURCE_USERNAME: cardprocess
+      SPRING_DATASOURCE_PASSWORD: cardprocess
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  portador-service:
+    build:
+      context: .
+      dockerfile: portador-service/Dockerfile
+    container_name: cardprocess-portador-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/portador_db
+      SPRING_DATASOURCE_USERNAME: cardprocess
+      SPRING_DATASOURCE_PASSWORD: cardprocess
+      SPRING_CLOUD_AWS_SQS_ENDPOINT: http://localstack:4566
+      SPRING_CLOUD_AWS_REGION_STATIC: us-east-1
+      SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY: test
+      SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY: test
+      CARDPROCESS_ISSUANCE_QUEUE: card-issuance-queue
+      CARDPROCESS_SECURITY_JWT_SECRET: ${JWT_SECRET:-card-process-super-secret-signing-key-change-me}
+      CARDPROCESS_CARTAO_BASE_URL: http://cartao-service:8083
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  cartao-service:
+    build:
+      context: .
+      dockerfile: cartao-service/Dockerfile
+    container_name: cardprocess-cartao-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cartao_db
+      SPRING_DATASOURCE_USERNAME: cardprocess
+      SPRING_DATASOURCE_PASSWORD: cardprocess
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      SPRING_CLOUD_AWS_SQS_ENDPOINT: http://localstack:4566
+      SPRING_CLOUD_AWS_REGION_STATIC: us-east-1
+      SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY: test
+      SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY: test
+      CARDPROCESS_ISSUANCE_QUEUE: card-issuance-queue
+      CARDPROCESS_PRODUTO_BASE_URL: http://produto-service:8081
+      CARDPROCESS_PRODUCT_CACHE_TTL: PT10M
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      produto-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
