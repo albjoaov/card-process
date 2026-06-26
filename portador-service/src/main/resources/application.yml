@@ -1,0 +1,51 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: portador-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/portador_db}
+    username: ${SPRING_DATASOURCE_USERNAME:cardprocess}
+    password: ${SPRING_DATASOURCE_PASSWORD:cardprocess}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  cloud:
+    aws:
+      region:
+        static: ${SPRING_CLOUD_AWS_REGION_STATIC:us-east-1}
+      credentials:
+        access-key: ${SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY:test}
+        secret-key: ${SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY:test}
+      sqs:
+        endpoint: ${SPRING_CLOUD_AWS_SQS_ENDPOINT:http://localhost:4566}
+
+cardprocess:
+  issuance:
+    queue: ${CARDPROCESS_ISSUANCE_QUEUE:card-issuance-queue}
+  cartao:
+    base-url: ${CARDPROCESS_CARTAO_BASE_URL:http://localhost:8083}
+  security:
+    jwt:
+      secret: ${CARDPROCESS_SECURITY_JWT_SECRET:card-process-super-secret-signing-key-change-me}
+      expiration: PT1H
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
