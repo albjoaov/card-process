@@ -1,0 +1,74 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: cartao-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/cartao_db}
+    username: ${SPRING_DATASOURCE_USERNAME:cardprocess}
+    password: ${SPRING_DATASOURCE_PASSWORD:cardprocess}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: 2s
+  cloud:
+    aws:
+      region:
+        static: ${SPRING_CLOUD_AWS_REGION_STATIC:us-east-1}
+      credentials:
+        access-key: ${SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY:test}
+        secret-key: ${SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY:test}
+      sqs:
+        endpoint: ${SPRING_CLOUD_AWS_SQS_ENDPOINT:http://localhost:4566}
+
+cardprocess:
+  issuance:
+    queue: ${CARDPROCESS_ISSUANCE_QUEUE:card-issuance-queue}
+  produto:
+    base-url: ${CARDPROCESS_PRODUTO_BASE_URL:http://localhost:8081}
+  product:
+    cache:
+      ttl: ${CARDPROCESS_PRODUCT_CACHE_TTL:PT10M}
+
+resilience4j:
+  retry:
+    instances:
+      produtoService:
+        max-attempts: 3
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - com.cardprocess.cartao.domain.DomainExceptions$ProductServiceUnavailableException
+  circuitbreaker:
+    instances:
+      produtoService:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
