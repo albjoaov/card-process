@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cardprocess.com/contracts/issuance-message.schema.json",
+  "title": "IssuanceMessage",
+  "description": "Payload published by Portador Service to the SQS issuance queue and consumed by Cartao Service to generate a card.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cardholderId", "productId", "correlationId"],
+  "properties": {
+    "cardholderId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the cardholder the card is issued for."
+    },
+    "productId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the product to validate against the source of truth and embed in the card."
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Idempotency and tracing key; unique per issuance request."
+    }
+  }
+}

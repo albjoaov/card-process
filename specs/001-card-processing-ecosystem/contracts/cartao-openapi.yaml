@@ -1,0 +1,141 @@
+openapi: 3.0.3
+info:
+  title: Cartao Service API
+  description: Issuance core. Consumes SQS issuance messages, validates the product against the source of truth, caches product details in Redis and exposes card reads.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8083
+paths:
+  /cards/{id}:
+    get:
+      summary: Get a card by id (product details served via Redis cache)
+      operationId: getCard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Card found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetail'
+        '503':
+          description: Produto Service unavailable while enriching product details
+  /cards/by-cardholder/{cardholderId}:
+    get:
+      summary: Get the card issued for a cardholder
+      operationId: getCardByCardholder
+      parameters:
+        - name: cardholderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Card found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetail'
+  /cards/{id}/status:
+    patch:
+      summary: Update card status
+      operationId: updateCardStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCardStatusRequest'
+      responses:
+        '200':
+          description: Card status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetail'
+components:
+  responses:
+    ProblemDetail:
+      description: Error response (RFC 7807 problem detail)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+  schemas:
+    UpdateCardStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ATIVO, BLOQUEADO, CANCELADO]
+    ProductSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+    CardResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cardholderId:
+          type: string
+          format: uuid
+        maskedNumber:
+          type: string
+        status:
+          type: string
+          enum: [ATIVO, BLOQUEADO, CANCELADO]
+        product:
+          $ref: '#/components/schemas/ProductSummary'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string

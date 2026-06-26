@@ -1,0 +1,231 @@
+openapi: 3.0.3
+info:
+  title: Portador Service API
+  description: Cardholder orchestrator. Authenticates via JWT, registers cardholders, triggers async card issuance and serves the aggregated view.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8082
+paths:
+  /auth/register:
+    post:
+      summary: Register an application user
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '201':
+          description: User registered
+        '409':
+          $ref: '#/components/responses/ProblemDetail'
+  /auth/login:
+    post:
+      summary: Authenticate and obtain a JWT
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/ProblemDetail'
+  /cardholders:
+    post:
+      summary: Register a cardholder and trigger card issuance
+      operationId: createCardholder
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCardholderRequest'
+      responses:
+        '201':
+          description: Cardholder registered, issuance enqueued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardholderResponse'
+        '400':
+          $ref: '#/components/responses/ProblemDetail'
+        '401':
+          description: Missing or invalid token
+        '409':
+          $ref: '#/components/responses/ProblemDetail'
+  /cardholders/{id}:
+    get:
+      summary: Get a cardholder by id
+      operationId: getCardholder
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cardholder found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardholderResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetail'
+  /cardholders/{id}/aggregate:
+    get:
+      summary: Aggregated view - cardholder + card + product
+      operationId: getCardholderAggregate
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Aggregated view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardholderAggregateResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetail'
+        '503':
+          description: Downstream card/product service unavailable
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    ProblemDetail:
+      description: Error response (RFC 7807 problem detail)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+  schemas:
+    AuthRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    TokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        expiresIn:
+          type: integer
+    CreateCardholderRequest:
+      type: object
+      required: [name, cpf, birthDate, productId]
+      properties:
+        name:
+          type: string
+        cpf:
+          type: string
+          example: "39053344705"
+        birthDate:
+          type: string
+          format: date
+        productId:
+          type: string
+          format: uuid
+    CardholderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cpf:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [ATIVO, BLOQUEADO, CANCELADO]
+        productId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CardSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        maskedNumber:
+          type: string
+        status:
+          type: string
+          enum: [ATIVO, BLOQUEADO, CANCELADO]
+    ProductSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+    CardholderAggregateResponse:
+      type: object
+      properties:
+        cardholder:
+          $ref: '#/components/schemas/CardholderResponse'
+        card:
+          $ref: '#/components/schemas/CardSummary'
+          nullable: true
+        product:
+          $ref: '#/components/schemas/ProductSummary'
+          nullable: true
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
