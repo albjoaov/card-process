@@ -1,0 +1,9 @@
+**/target/
+**/*.iml
+.idea/
+.vscode/
+.git/
+.DS_Store
+specs/
+*.md
+postman_collection.json
