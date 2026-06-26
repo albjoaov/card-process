@@ -1,0 +1,183 @@
+{
+  "info": {
+    "name": "Card Process",
+    "description": "End-to-end flow and resilience probes for the Produto, Portador and Cartao services. Run the requests top to bottom: ids and the JWT are captured automatically into collection variables.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "produtoBaseUrl", "value": "http://localhost:8081"},
+    {"key": "portadorBaseUrl", "value": "http://localhost:8082"},
+    {"key": "cartaoBaseUrl", "value": "http://localhost:8083"},
+    {"key": "username", "value": "operator"},
+    {"key": "password", "value": "secret123"},
+    {"key": "productId", "value": ""},
+    {"key": "token", "value": ""},
+    {"key": "cardholderId", "value": ""},
+    {"key": "cardId", "value": ""}
+  ],
+  "item": [
+    {
+      "name": "Produto",
+      "item": [
+        {
+          "name": "Create Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.code === 201);",
+                  "pm.collectionVariables.set('productId', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"name\": \"Black\"\n}"},
+            "url": {"raw": "{{produtoBaseUrl}}/products", "host": ["{{produtoBaseUrl}}"], "path": ["products"]}
+          }
+        },
+        {
+          "name": "Get Product",
+          "request": {
+            "method": "GET",
+            "url": {"raw": "{{produtoBaseUrl}}/products/{{productId}}", "host": ["{{produtoBaseUrl}}"], "path": ["products", "{{productId}}"]}
+          }
+        },
+        {
+          "name": "Cancel Product",
+          "request": {
+            "method": "PATCH",
+            "url": {"raw": "{{produtoBaseUrl}}/products/{{productId}}/cancel", "host": ["{{produtoBaseUrl}}"], "path": ["products", "{{productId}}", "cancel"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Portador",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"},
+            "url": {"raw": "{{portadorBaseUrl}}/auth/register", "host": ["{{portadorBaseUrl}}"], "path": ["auth", "register"]}
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.code === 200);",
+                  "pm.collectionVariables.set('token', pm.response.json().token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"},
+            "url": {"raw": "{{portadorBaseUrl}}/auth/login", "host": ["{{portadorBaseUrl}}"], "path": ["auth", "login"]}
+          }
+        },
+        {
+          "name": "Create Cardholder (triggers issuance)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.code === 201);",
+                  "pm.collectionVariables.set('cardholderId', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{token}}"}
+            ],
+            "body": {"mode": "raw", "raw": "{\n  \"name\": \"Maria Silva\",\n  \"cpf\": \"39053344705\",\n  \"birthDate\": \"1990-05-12\",\n  \"productId\": \"{{productId}}\"\n}"},
+            "url": {"raw": "{{portadorBaseUrl}}/cardholders", "host": ["{{portadorBaseUrl}}"], "path": ["cardholders"]}
+          }
+        },
+        {
+          "name": "Get Cardholder",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {"raw": "{{portadorBaseUrl}}/cardholders/{{cardholderId}}", "host": ["{{portadorBaseUrl}}"], "path": ["cardholders", "{{cardholderId}}"]}
+          }
+        },
+        {
+          "name": "Get Aggregate (cardholder + card + product)",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {"raw": "{{portadorBaseUrl}}/cardholders/{{cardholderId}}/aggregate", "host": ["{{portadorBaseUrl}}"], "path": ["cardholders", "{{cardholderId}}", "aggregate"]}
+          }
+        },
+        {
+          "name": "Create Cardholder (no token -> 401)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"name\": \"No Auth\",\n  \"cpf\": \"39053344705\",\n  \"birthDate\": \"1990-05-12\",\n  \"productId\": \"{{productId}}\"\n}"},
+            "url": {"raw": "{{portadorBaseUrl}}/cardholders", "host": ["{{portadorBaseUrl}}"], "path": ["cardholders"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cartao",
+      "item": [
+        {
+          "name": "Get Card by Cardholder",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { pm.collectionVariables.set('cardId', pm.response.json().id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {"raw": "{{cartaoBaseUrl}}/cards/by-cardholder/{{cardholderId}}", "host": ["{{cartaoBaseUrl}}"], "path": ["cards", "by-cardholder", "{{cardholderId}}"]}
+          }
+        },
+        {
+          "name": "Get Card by Id",
+          "request": {
+            "method": "GET",
+            "url": {"raw": "{{cartaoBaseUrl}}/cards/{{cardId}}", "host": ["{{cartaoBaseUrl}}"], "path": ["cards", "{{cardId}}"]}
+          }
+        },
+        {
+          "name": "Update Card Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"status\": \"BLOQUEADO\"\n}"},
+            "url": {"raw": "{{cartaoBaseUrl}}/cards/{{cardId}}/status", "host": ["{{cartaoBaseUrl}}"], "path": ["cards", "{{cardId}}", "status"]}
+          }
+        }
+      ]
+    }
+  ]
+}
