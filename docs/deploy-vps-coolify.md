@@ -137,6 +137,26 @@ docker compose -f docker-compose.prod.yml exec -T postgres \
 **Backup local não é DR**: copie o volume para fora do VPS (rclone para um object storage
 S3-compatível — Backblaze B2/Cloudflare R2 custam centavos — ou os snapshots do provedor).
 
+### Métricas (Prometheus)
+
+Cada serviço expõe `GET /actuator/prometheus` numa **porta de management interna (9090)**, separada
+da porta da aplicação — como só a porta 8082 do Portador é proxiada publicamente, as métricas nunca
+ficam acessíveis pela internet (importante: o `SecurityConfig` do Portador faz `permitAll` em
+`/actuator/**`, então mantê-las na porta pública as vazaria). Os healthchecks do compose também
+usam a porta 9090.
+
+Estão inclusas as métricas RED de HTTP, JVM, HikariCP, cache e **Resilience4j** (estado dos dois
+circuit breakers: `resilience4j_circuitbreaker_state`). Para coletar:
+
+- **Mais simples**: [Grafana Cloud free tier](https://grafana.com/products/cloud/) + Grafana Alloy
+  no VPS fazendo scrape de `http://<container>:9090/actuator/prometheus` e `remote_write` — sem
+  hospedar Prometheus.
+- **Self-hosted**: suba Prometheus + Grafana como outro recurso Compose no Coolify, na mesma rede
+  Docker da stack.
+
+Alertas mínimos: profundidade da DLQ > 0 (incidente), circuit breaker aberto, e p99 do
+`http_server_requests` no aggregate.
+
 ### Deploy, rollback e observação
 
 - **Deploy**: push na branch → webhook → Coolify rebuilda e recria os containers (haverá alguns
@@ -153,5 +173,5 @@ S3-compatível — Backblaze B2/Cloudflare R2 custam centavos — ou os snapshot
 |---|---|---|
 | Single-node: manutenção do VPS = downtime | Healthchecks + restart + deploy rápido | 2º nó + LB, ou migrar p/ ECS/Cloud Run |
 | ElasticMQ sem replicação | Persistência H2 em volume + DLQ | SQS real (troca de env vars) |
-| Sem métricas/tracing | Logs via Coolify + uptime externo | Micrometer/Prometheus (próximo passo natural) |
+| Sem tracing distribuído | Métricas Prometheus internas (porta 9090) + logs | OpenTelemetry propagando o `correlationId` |
 | Builds no próprio VPS | 8 GB de RAM absorve | CI (GitHub Actions) publicando em GHCR |
