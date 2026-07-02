@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: cardprocess-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: cardprocess
       POSTGRES_PASSWORD: cardprocess
@@ -21,6 +22,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: cardprocess-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     healthcheck:
@@ -32,6 +34,7 @@ services:
   localstack:
     image: localstack/localstack:3.8
     container_name: cardprocess-localstack
+    restart: unless-stopped
     environment:
       SERVICES: sqs
       DEBUG: "0"
@@ -51,6 +54,7 @@ services:
       context: .
       dockerfile: produto-service/Dockerfile
     container_name: cardprocess-produto-service
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/produto_db
       SPRING_DATASOURCE_USERNAME: cardprocess
@@ -72,6 +76,7 @@ services:
       context: .
       dockerfile: portador-service/Dockerfile
     container_name: cardprocess-portador-service
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/portador_db
       SPRING_DATASOURCE_USERNAME: cardprocess
@@ -102,6 +107,7 @@ services:
       context: .
       dockerfile: cartao-service/Dockerfile
     container_name: cardprocess-cartao-service
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cartao_db
       SPRING_DATASOURCE_USERNAME: cardprocess
