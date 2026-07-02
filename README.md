@@ -30,6 +30,8 @@ flowchart LR
     subgraph Portador[Portador Service :8082]
         direction TB
         PCtl[Cardholder/Auth Controllers] --> PSvc[Cardholder + Aggregation Services]
+        PSvc -->|same tx| Outbox[(outbox_message)]
+        Outbox -->|poll SKIP LOCKED| Relay[Outbox Relay]
     end
 
     subgraph Cartao[Cartao Service :8083]
@@ -43,7 +45,7 @@ flowchart LR
         ProdCtl[Product Controller] --> ProdSvc[Product Service]
     end
 
-    PSvc -->|publish IssuanceMessage| SQS[(SQS: card-issuance-queue)]
+    Relay -->|publish IssuanceMessage| SQS[(SQS: card-issuance-queue)]
     SQS -->|maxReceiveCount=5| DLQ[(SQS: card-issuance-dlq)]
     SQS --> Consumer
     Gateway -->|read-through| Redis[(Redis)]
@@ -79,9 +81,13 @@ sequenceDiagram
     participant R as Redis
 
     C->>P: POST /cardholders (JWT)
-    P->>P: persist cardholder (status ATIVO)
-    P->>Q: publish IssuanceMessage{cardholderId, productId, correlationId}
+    P->>P: persist cardholder + outbox row (single local transaction)
     P-->>C: 201 Created (cardholder)
+
+    loop outbox relay (poll + exponential backoff)
+        P->>Q: publish IssuanceMessage{cardholderId, productId, correlationId}
+        P->>P: mark outbox row PUBLISHED
+    end
 
     Q->>K: deliver IssuanceMessage
     K->>K: idempotency check (correlationId / cardholderId)
@@ -118,6 +124,15 @@ sequenceDiagram
    `cardholder_id`, and the consumer checks for an existing card before inserting, so a
    redelivered message can never create a duplicate card (idempotent consumption).
 
+**A card is never issued for a cardholder that was not committed.** Registration uses a
+**transactional outbox**: the cardholder row and the `IssuanceMessage` (serialized into
+`outbox_message`) commit in the *same* local transaction — there is no dual write to the database
+and the broker. A scheduled relay drains the table with `FOR UPDATE SKIP LOCKED` and publishes to
+SQS with **at-least-once** semantics; a crash between publish and mark-as-published only causes a
+duplicate delivery, which the consumer's idempotency (rule 4) absorbs. If the transaction rolls
+back, the outbox row rolls back with it, so no message can ever exist for a cardholder that does
+not.
+
 The cache is a **read accelerator only** — it is consulted for enrichment/aggregation reads, never
 to authorize a write. This separation (fail-closed writes, fail-open reads) is the core of the
 data-integrity guarantee.
@@ -128,13 +143,13 @@ Designed for "systems that cannot stop". Behavior under failure:
 
 | Failure | Behavior |
 |---------|----------|
-| **SQS unavailable when registering** | Cardholder registration publishes inside the transaction; if SQS is down the operation fails fast and rolls back (no cardholder left without an issuance attempt). The client retries. |
+| **SQS unavailable when registering** | Registration commits the cardholder **and** the issuance intent (outbox row) in one local transaction and still returns `201`. The outbox relay keeps retrying with exponential backoff and delivers as soon as SQS recovers — no registration is rejected and no issuance is lost. |
 | **Produto Service offline during issuance** | `ProductGateway.requireActiveProduct` fails closed; the message is retried with backoff and ultimately dead-lettered. **Zero orphan cards.** |
 | **Produto Service unstable** | The synchronous client is wrapped with Resilience4j: connect/read timeouts, retry with exponential backoff, and a circuit breaker that sheds load from the failing dependency. |
 | **Redis down** | `RedisProductCache` swallows the failure and degrades to a cache miss; the gateway falls back to a direct (resilient) Produto call. Reads still succeed — no `500`. |
 | **Redis down AND Produto unstable (reads)** | Enrichment degrades gracefully: the card is still returned with `product = null` rather than failing, so the cardholder is never left without a response. |
 | **Cartao Service offline during aggregate** | The Portador -> Cartao client is wrapped with Resilience4j (timeouts, retry with backoff, circuit breaker) and surfaces a semantic `503` problem detail instead of hanging or returning `500`. |
-| **Concurrent duplicate registration (CPF/username)** | The insert is flushed before the SQS publish, so a losing race never emits an issuance message for a rolled-back cardholder; the violation is mapped to `409 Conflict`. |
+| **Concurrent duplicate registration (CPF/username)** | A losing race trips the unique constraint and rolls back the whole transaction — cardholder and outbox row together, so no issuance message survives for a rolled-back cardholder; the violation is mapped to `409 Conflict`. |
 | **Any unhandled domain error** | Every handler extends `ResponseEntityExceptionHandler` plus a logged catch-all, so framework and unexpected errors alike return an RFC 7807 `application/problem+json` body — never a raw stack trace. |
 | **Container crash** | All containers run with `restart: unless-stopped`, so a crashed service rejoins the mesh automatically. |
 
@@ -143,6 +158,13 @@ Designed for "systems that cannot stop". Behavior under failure:
 Full rationale (with rejected alternatives) is in
 [`specs/.../research.md`](specs/001-card-processing-ecosystem/research.md). Highlights:
 
+- **Transactional outbox** for issuance publishing: the cardholder insert and the issuance message
+  commit atomically in `portador_db`, closing the classic dual-write gap between the database and
+  the broker. A scheduled relay drains the table in `FOR UPDATE SKIP LOCKED` batches (safe for
+  multiple instances) and publishes with exponential backoff; delivery is at-least-once and the
+  consumer's idempotency absorbs duplicates. The SQS transport resolves the queue URL via
+  `SqsAsyncClient` with a success-only cache, because `SqsTemplate` caches a *failed* queue
+  resolution forever and would leave the relay permanently broken after an outage.
 - **SQS-native retry + DLQ redrive** instead of in-memory retries: broker-side redrive survives
   consumer crashes and guarantees poison messages reach the DLQ — the financial-grade standard.
 - **Read-through Redis cache with TTL** behind a `ProductCache` interface: transparent to callers,
@@ -217,6 +239,12 @@ docker compose stop redis
 curl -s http://localhost:8083/cards/by-cardholder/$CARDHOLDER_ID | jq
 docker compose start redis
 
+# SQS down -> registration still succeeds; the outbox delivers when SQS returns
+docker compose stop localstack
+# register another cardholder: it returns 201 and the message waits in portador's outbox_message table
+docker compose start localstack
+# within seconds the relay publishes the pending row and the card is issued
+
 # Produto offline -> no orphan card; message lands in the DLQ
 docker compose stop produto-service
 # register another cardholder, then inspect the DLQ depth:
@@ -256,6 +284,10 @@ Runs unit tests (business rules in isolation) and integration tests backed by **
 flows are covered:
 
 - **Registration -> enqueue**: `CardholderIssuanceIntegrationTest` (real Postgres + SQS).
+- **Outbox survives an SQS outage**: `OutboxDeliveryIntegrationTest` registers a cardholder while
+  the queue does not exist (registration still returns `201`, the outbox row stays `PENDING` and
+  accumulates retry attempts), then creates the queue and proves the relay delivers the message
+  and marks the row `PUBLISHED`.
 - **Consume -> validate -> persist + cache**: `CardConsumptionIntegrationTest` (real Postgres +
   Redis + SQS, WireMock Produto) — also asserts the product is fetched once and reads are cache hits,
   and that no card is created for a non-existent product.
