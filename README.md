@@ -276,6 +276,6 @@ version (`1.41`) so Testcontainers works with engines that require a modern API 
 ├── infra/                      # Postgres + LocalStack init scripts
 ├── postman_collection.json     # Importable API collection
 ├── IMPLEMENTATION.md           # How this was built, step by step (English)
-├── docs/                       # RELATORIO-DE-IMPLEMENTACAO.md (PT, chronological + fixes) + questionnaire answers
+├── docs/                       # RELATORIO-DE-IMPLEMENTACAO.md, RELATORIO-DE-HARDENING.md (PT) + questionnaire answers
 └── specs/001-card-processing-ecosystem/   # spec-kit artifacts (spec, plan, research, tasks, contracts)
 ```
