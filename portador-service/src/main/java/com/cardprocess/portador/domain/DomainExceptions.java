@@ -15,7 +15,14 @@ public final class DomainExceptions {
 
     public static class DuplicateCpfException extends RuntimeException {
         public DuplicateCpfException(String cpf) {
-            super("Cardholder already registered for CPF: " + cpf);
+            super("Cardholder already registered for CPF: " + maskCpf(cpf));
+        }
+
+        private static String maskCpf(String cpf) {
+            if (cpf == null || cpf.length() < 3) {
+                return "***";
+            }
+            return "*********" + cpf.substring(cpf.length() - 2);
         }
     }
 
