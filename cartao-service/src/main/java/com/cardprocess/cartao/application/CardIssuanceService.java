@@ -5,7 +5,6 @@ import com.cardprocess.cartao.infrastructure.persistence.CardRepository;
 import com.cardprocess.shared.messaging.IssuanceMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,17 +35,13 @@ public class CardIssuanceService {
 
         ProductSnapshot product = productGateway.requireActiveProduct(message.productId());
 
-        try {
-            Card card = repository.save(Card.issue(
-                    message.cardholderId(),
-                    message.productId(),
-                    cardNumberGenerator.generateMasked(),
-                    message.correlationId()));
-            log.info("Card issued cardId={} cardholderId={} productId={} product={}",
-                    card.getId(), card.getCardholderId(), product.id(), product.name());
-        } catch (DataIntegrityViolationException duplicate) {
-            log.info("Concurrent duplicate issuance ignored correlationId={}", message.correlationId());
-        }
+        Card card = repository.save(Card.issue(
+                message.cardholderId(),
+                message.productId(),
+                cardNumberGenerator.generateMasked(),
+                message.correlationId()));
+        log.info("Card issued cardId={} cardholderId={} productId={} product={}",
+                card.getId(), card.getCardholderId(), product.id(), product.name());
     }
 
     private boolean alreadyProcessed(IssuanceMessage message) {
