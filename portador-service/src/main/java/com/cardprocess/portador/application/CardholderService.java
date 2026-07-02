@@ -27,10 +27,12 @@ public class CardholderService {
 
     @Transactional
     public Cardholder register(String name, String cpf, LocalDate birthDate, UUID productId) {
-        if (repository.existsByCpf(cpf)) {
-            throw new DuplicateCpfException(cpf);
+        String normalizedCpf = cpf.replaceAll("\\D", "");
+        if (repository.existsByCpf(normalizedCpf)) {
+            throw new DuplicateCpfException(normalizedCpf);
         }
-        Cardholder cardholder = repository.save(Cardholder.register(name, cpf, birthDate, productId));
+        Cardholder cardholder = repository.saveAndFlush(
+                Cardholder.register(name, normalizedCpf, birthDate, productId));
         UUID correlationId = UUID.randomUUID();
         issuancePublisher.publish(new IssuanceMessage(cardholder.getId(), productId, correlationId));
         log.info("Issuance triggered cardholderId={} productId={} correlationId={}",

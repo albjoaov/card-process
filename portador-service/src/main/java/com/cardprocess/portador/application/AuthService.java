@@ -28,7 +28,7 @@ public class AuthService {
         if (userRepository.existsByUsername(username)) {
             throw new UsernameAlreadyExistsException(username);
         }
-        userRepository.save(AppUser.create(username, passwordEncoder.encode(rawPassword)));
+        userRepository.saveAndFlush(AppUser.create(username, passwordEncoder.encode(rawPassword)));
     }
 
     @Transactional(readOnly = true)
