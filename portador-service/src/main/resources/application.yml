@@ -36,6 +36,25 @@ cardprocess:
       secret: ${CARDPROCESS_SECURITY_JWT_SECRET:card-process-super-secret-signing-key-change-me}
       expiration: PT1H
 
+resilience4j:
+  retry:
+    instances:
+      cartaoService:
+        max-attempts: 3
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - com.cardprocess.portador.domain.DomainExceptions$CardServiceUnavailableException
+  circuitbreaker:
+    instances:
+      cartaoService:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+
 management:
   endpoints:
     web:

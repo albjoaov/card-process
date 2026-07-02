@@ -4,6 +4,8 @@ import com.cardprocess.portador.application.CardGateway;
 import com.cardprocess.portador.application.CardView;
 import com.cardprocess.portador.application.CardView.ProductView;
 import com.cardprocess.portador.domain.DomainExceptions.CardServiceUnavailableException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +19,8 @@ import org.springframework.web.client.RestClientException;
 @Component
 public class CartaoClient implements CardGateway {
 
+    private static final String RESILIENCE_INSTANCE = "cartaoService";
+
     private final RestClient restClient;
 
     public CartaoClient(RestClient.Builder builder, @Value("${cardprocess.cartao.base-url}") String baseUrl) {
@@ -27,6 +31,8 @@ public class CartaoClient implements CardGateway {
     }
 
     @Override
+    @CircuitBreaker(name = RESILIENCE_INSTANCE)
+    @Retry(name = RESILIENCE_INSTANCE, fallbackMethod = "findByCardholderFallback")
     public Optional<CardView> findByCardholder(UUID cardholderId) {
         try {
             CartaoCardResponse response = restClient.get()
@@ -39,6 +45,11 @@ public class CartaoClient implements CardGateway {
         } catch (RestClientException unavailable) {
             throw new CardServiceUnavailableException(unavailable);
         }
+    }
+
+    @SuppressWarnings("unused")
+    private Optional<CardView> findByCardholderFallback(UUID cardholderId, Throwable cause) {
+        throw new CardServiceUnavailableException(cause);
     }
 
     private static CardView toView(CartaoCardResponse response) {
