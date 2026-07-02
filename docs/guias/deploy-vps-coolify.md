@@ -1,7 +1,7 @@
 # Deploy em produção: VPS + Coolify
 
 Runbook para colocar o ecossistema em produção na opção mais barata e simples: um único VPS
-gerenciado pelo [Coolify](https://coolify.io), usando [`docker-compose.prod.yml`](../docker-compose.prod.yml).
+gerenciado pelo [Coolify](https://coolify.io), usando [`docker-compose.prod.yml`](../../docker-compose.prod.yml).
 Custo total de referência: **~€6–10/mês** (VPS de 4 vCPU / 8 GB, ex.: Hetzner CX32/CPX31,
 DigitalOcean, Contabo) + domínio.
 
@@ -22,7 +22,7 @@ O LocalStack é uma ferramenta de *desenvolvimento*; em produção ele é pesado
 e a versão free não persiste estado. O [ElasticMQ](https://github.com/softwaremill/elasticmq)
 fala o **mesmo protocolo SQS** — nenhuma linha de código Java muda, apenas o endpoint — e:
 
-- As filas são **declarativas** em [`infra/elasticmq/elasticmq.conf`](../infra/elasticmq/elasticmq.conf),
+- As filas são **declarativas** em [`infra/elasticmq/elasticmq.conf`](../../infra/elasticmq/elasticmq.conf),
   espelhando o `init-sqs.sh` do dev: `card-issuance-queue` com redrive para `card-issuance-dlq`
   após `maxReceiveCount=5` (semântica verificada: a mensagem move para a DLQ na 6ª tentativa de
   recebimento, igual ao SQS real).
@@ -104,7 +104,7 @@ docker compose -f docker-compose.prod.yml exec portador-service \
   -d '{"name":"Black"}'
 ```
 
-Depois siga o fluxo do [README](../README.md#end-to-end-demo) (register → login → cardholder →
+Depois siga o fluxo do [README](../../README.md#end-to-end-demo) (register → login → cardholder →
 aggregate) contra `https://api.seudominio.com`.
 
 ## Operação
