@@ -15,7 +15,7 @@ of code traces back to an approved specification, plan and task list.
 
 ## 1. Constitution (principles)
 
-Wrote [`/.specify/memory/constitution.md`](.specify/memory/constitution.md) to lock the
+Wrote [`/.specify/memory/constitution.md`](../../.specify/memory/constitution.md) to lock the
 non-negotiable principles before any design:
 
 1. **Resilience first** — every cross-service/infra call assumes failure; async gets retry + DLQ.
@@ -26,30 +26,30 @@ non-negotiable principles before any design:
 
 ## 2. Specification
 
-Wrote [`specs/001-card-processing-ecosystem/spec.md`](specs/001-card-processing-ecosystem/spec.md):
+Wrote [`specs/001-card-processing-ecosystem/spec.md`](../../specs/001-card-processing-ecosystem/spec.md):
 three prioritized, independently testable user stories (P1 issuance, P2 catalog, P3 resilience),
 18 functional requirements (FR-001..FR-018), measurable success criteria, edge cases and assumptions.
 Technology-agnostic by design — it describes *what*, not *how*.
 
 ## 3. Plan and design artifacts
 
-Wrote [`plan.md`](specs/001-card-processing-ecosystem/plan.md) and supporting documents:
+Wrote [`plan.md`](../../specs/001-card-processing-ecosystem/plan.md) and supporting documents:
 
-- [`research.md`](specs/001-card-processing-ecosystem/research.md) — ten technical decisions
+- [`research.md`](../../specs/001-card-processing-ecosystem/research.md) — ten technical decisions
   (D1..D10), each with rationale and rejected alternatives: SQS client, DLQ strategy, the
   non-existent-product guarantee, the Redis cache strategy, Resilience4j, idempotency, JWT,
   persistence/auditing/migrations, build/runtime topology, and the testing approach.
-- [`data-model.md`](specs/001-card-processing-ecosystem/data-model.md) — entities, columns,
+- [`data-model.md`](../../specs/001-card-processing-ecosystem/data-model.md) — entities, columns,
   constraints and state machines per service.
-- [`contracts/`](specs/001-card-processing-ecosystem/contracts/) — OpenAPI for each service and the
+- [`contracts/`](../../specs/001-card-processing-ecosystem/contracts/) — OpenAPI for each service and the
   JSON schema for the `IssuanceMessage`.
-- [`quickstart.md`](specs/001-card-processing-ecosystem/quickstart.md) — run/test/demo guide.
+- [`quickstart.md`](../../specs/001-card-processing-ecosystem/quickstart.md) — run/test/demo guide.
 
 A **Constitution Check** gate in the plan confirmed the design honored every principle before coding.
 
 ## 4. Task breakdown
 
-Wrote [`tasks.md`](specs/001-card-processing-ecosystem/tasks.md): 42 dependency-ordered tasks grouped
+Wrote [`tasks.md`](../../specs/001-card-processing-ecosystem/tasks.md): 42 dependency-ordered tasks grouped
 by user story (Setup -> Foundational -> US2 catalog -> US1 issuance -> US3 resilience -> Polish), so
 each slice is independently buildable and testable.
 
@@ -151,4 +151,3 @@ in flight for a cardholder that never existed. Fixed with a **transactional outb
 - `postman_collection.json` for manual testing.
 - `README.md` (architecture, decisions, integrity guarantee, resilience, setup).
 - The complete spec-kit artifact set under `specs/`.
-- Answers to the leadership and AI questionnaires under `docs/`.

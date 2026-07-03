@@ -10,7 +10,7 @@ código, com verificação a cada etapa.
 
 ## Fase 0 — Preparação do ambiente
 
-1. **Leitura da especificação** (`Projeto B.U Processamento ... .pdf`): ecossistema de 3
+1. **Leitura da especificação**: ecossistema de 3
    microserviços (Produto, Portador, Cartão), fluxo assíncrono via SQS, cache Redis, JWT, PostgreSQL,
    Docker Compose com boot por um único comando, retry/DLQ, testes e documentação profissional.
 2. **Levantamento de ferramentas**: presentes Java 17, Docker (engine **OrbStack**), `uv`, `gh`.
@@ -159,8 +159,8 @@ código, com verificação a cada etapa.
 - **Testes:** 20 verdes (4 classes unitárias + 3 de integração com Testcontainers nos fluxos críticos
   de cadastro e consumo de fila).
 - **Boot:** `docker compose up` sobe Postgres, Redis, LocalStack e os 3 serviços com um único comando.
-- **Entregáveis:** `docker-compose.yml`, `README.md`, `postman_collection.json`, `IMPLEMENTATION.md`,
-  artefatos do spec-kit em `specs/`, e as respostas das Partes 2 e 2.1 em `docs/`.
+- **Entregáveis:** `docker-compose.yml`, `README.md`, `postman_collection.json`, `docs/relatorios/implementation-walkthrough.md`,
+  artefatos do spec-kit em `specs/`.
 
 ## Resumo dos erros e correções
 

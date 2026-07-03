@@ -186,7 +186,7 @@ Full rationale (with rejected alternatives) is in
 ### Prerequisites
 
 - Docker + Docker Compose (the only hard requirement to run the ecosystem).
-- Optional for local development and tests: Java 21 and Maven 3.9+.
+- Optional for local development and tests: Java 21 (Maven comes via the `./mvnw` wrapper).
 
 ### Run everything (single command)
 
@@ -262,7 +262,7 @@ A production-ready variant of the stack lives in
 declarative DLQ redrive), secrets are mandatory, infra services are network-internal only, and a
 sidecar takes daily Postgres backups. The full runbook — single VPS managed by
 [Coolify](https://coolify.io), TLS via Traefik/Let's Encrypt, git-push deploys — is in
-[`docs/deploy-vps-coolify.md`](docs/deploy-vps-coolify.md).
+[`docs/guias/deploy-vps-coolify.md`](docs/guias/deploy-vps-coolify.md).
 
 ## API reference
 
@@ -286,7 +286,7 @@ OpenAPI/Swagger UI is exposed per service (links above). Contract files are also
 ## Testing
 
 ```bash
-mvn test
+./mvnw test
 ```
 
 Runs unit tests (business rules in isolation) and integration tests backed by **Testcontainers**
@@ -317,7 +317,8 @@ version (`1.41`) so Testcontainers works with engines that require a modern API 
 ├── cartao-service/             # Issuance core (SQS consumer, Redis cache, Resilience4j)
 ├── infra/                      # Postgres + LocalStack init scripts
 ├── postman_collection.json     # Importable API collection
-├── IMPLEMENTATION.md           # How this was built, step by step (English)
-├── docs/                       # RELATORIO-DE-IMPLEMENTACAO.md, RELATORIO-DE-HARDENING.md (PT) + questionnaire answers
+├── docs/                       # See docs/README.md for the full index
+│   ├── guias/                  # Local dev setup, VPS/Coolify deployment runbook, spec-kit guide
+│   └── relatorios/             # Implementation walkthrough (EN) + implementation/hardening reports (PT)
 └── specs/001-card-processing-ecosystem/   # spec-kit artifacts (spec, plan, research, tasks, contracts)
 ```
