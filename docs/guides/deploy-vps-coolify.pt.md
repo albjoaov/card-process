@@ -1,5 +1,7 @@
 # Deploy em produção: VPS + Coolify
 
+*[English](deploy-vps-coolify.md)*
+
 Runbook para colocar o ecossistema em produção na opção mais barata e simples: um único VPS
 gerenciado pelo [Coolify](https://coolify.io), usando [`docker-compose.prod.yml`](../../docker-compose.prod.yml).
 Custo total de referência: **~€6–10/mês** (VPS de 4 vCPU / 8 GB, ex.: Hetzner CX32/CPX31,
@@ -104,7 +106,7 @@ docker compose -f docker-compose.prod.yml exec portador-service \
   -d '{"name":"Black"}'
 ```
 
-Depois siga o fluxo do [README](../../README.md#end-to-end-demo) (register → login → cardholder →
+Depois siga o fluxo do [README](../../README.pt.md#demo-ponta-a-ponta) (register → login → cardholder →
 aggregate) contra `https://api.seudominio.com`.
 
 ## Operação

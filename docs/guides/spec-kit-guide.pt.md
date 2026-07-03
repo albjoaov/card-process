@@ -1,5 +1,7 @@
 # Guia de Uso do Spec Kit
 
+*[English](spec-kit-guide.md)*
+
 O Spec Kit é um conjunto de skills que guia o processo de criação de features de forma estruturada, do conceito até a implementação. Cada skill é um passo no pipeline.
 
 ## Pipeline Completo

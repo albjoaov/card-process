@@ -1,7 +1,9 @@
 # Relatório de Hardening — Revisão Pós-Implementação
 
+*[English](hardening-report.md)*
+
 Este documento detalha a revisão completa realizada sobre a implementação já finalizada do Card Process. Diferente do
-[RELATORIO-DE-IMPLEMENTACAO.md](RELATORIO-DE-IMPLEMENTACAO.md) (que narra a construção original), aqui
+[implementation-walkthrough.pt.md](implementation-walkthrough.pt.md) (que narra a construção original), aqui
 o foco é **auditoria de código já pronto**: o que estava errado, por que estava errado, e exatamente o
 que mudou para corrigir. A revisão foi feita num git worktree isolado
 (`worktree-hardening-review`), sem tocar o código em produção até a validação completa.
@@ -626,7 +628,9 @@ que o hardening pontual proposto:
   assíncrono separado — ou um *Change Data Capture* como Debezium — garante a entrega efetiva à fila).
   Isso já estava documentado como evolução natural no README original e permanece como tal: é uma
   mudança de infraestrutura de mensageria, não um bug pontual, e está fora do escopo desta revisão de
-  hardening.
+  hardening. *(Nota: essa lacuna foi fechada posteriormente — veja
+  [implementation-walkthrough.pt.md § 11](implementation-walkthrough.pt.md#11-hardening-pós-revisão-outbox-transacional)
+  para o outbox transacional implementado depois.)*
 - **Autenticação nos serviços Produto e Cartão.** Ambos permanecem sem JWT, por design — o escopo
   especifica autenticação apenas no Portador Service (o único ponto de entrada voltado a operadores
   humanos); Produto e Cartão são chamados apenas internamente, por outros serviços da malha.

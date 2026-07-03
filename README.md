@@ -1,5 +1,7 @@
 # Card Process
 
+*[Português](README.pt.md)*
+
 An ecosystem of three integrated Spring Boot microservices that manage the lifecycle of card
 **Products**, **Cardholders** and **Cards**, issuing cards asynchronously through AWS SQS while
 guaranteeing that a card is never created for a missing or cancelled product. The whole environment
@@ -262,7 +264,7 @@ A production-ready variant of the stack lives in
 declarative DLQ redrive), secrets are mandatory, infra services are network-internal only, and a
 sidecar takes daily Postgres backups. The full runbook — single VPS managed by
 [Coolify](https://coolify.io), TLS via Traefik/Let's Encrypt, git-push deploys — is in
-[`docs/guias/deploy-vps-coolify.md`](docs/guias/deploy-vps-coolify.md).
+[`docs/guides/deploy-vps-coolify.md`](docs/guides/deploy-vps-coolify.md).
 
 ## API reference
 
@@ -318,7 +320,7 @@ version (`1.41`) so Testcontainers works with engines that require a modern API 
 ├── infra/                      # Postgres + LocalStack init scripts
 ├── postman_collection.json     # Importable API collection
 ├── docs/                       # See docs/README.md for the full index
-│   ├── guias/                  # Local dev setup, VPS/Coolify deployment runbook, spec-kit guide
-│   └── relatorios/             # Implementation walkthrough (EN) + implementation/hardening reports (PT)
+│   ├── guides/                 # Local dev setup, VPS/Coolify deployment runbook, spec-kit guide (EN + PT)
+│   └── reports/                # Implementation walkthrough + hardening report (EN + PT)
 └── specs/001-card-processing-ecosystem/   # spec-kit artifacts (spec, plan, research, tasks, contracts)
 ```

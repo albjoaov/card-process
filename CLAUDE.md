@@ -13,7 +13,7 @@ Use the Maven wrapper (`./mvnw`, pinned to 3.9.9) — no local Maven install req
 - `./mvnw clean install -DskipTests` — build all modules.
 - `docker compose up --build` — full stack (Postgres, Redis, LocalStack + the 3 services), single command.
 - Local dev loop (services on the JVM, infra in Docker): `docker compose up postgres redis localstack -d`,
-  then `./mvnw -pl <service> spring-boot:run` per service — see `docs/guias/local-dev-setup.md`.
+  then `./mvnw -pl <service> spring-boot:run` per service — see `docs/guides/local-dev-setup.md`.
 
 ## Architecture
 
@@ -52,4 +52,4 @@ a new one). Errors are RFC 7807 `ProblemDetail` via global handlers.
 
 ## Docs
 
-`docs/README.md` is the index: guides (`docs/guias/`), build reports (`docs/relatorios/`).
+`docs/README.md` is the index: guides (`docs/guides/`), build reports (`docs/reports/`).

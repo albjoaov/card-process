@@ -1,17 +1,20 @@
-# Documentação
+# Documentation
 
-Índice da documentação do Card Process. A visão geral de arquitetura, setup e
-API está no [`README.md`](../README.md) da raiz; os artefatos de especificação (spec, plan,
-research, tasks, contracts) estão em [`specs/001-card-processing-ecosystem/`](../specs/001-card-processing-ecosystem/).
+*[Português](README.pt.md)*
 
-## [`guias/`](guias/) — como rodar, desenvolver e implantar
+Index of the Card Process documentation. The architecture, setup and API overview lives in the
+root [`README.md`](../README.md); the specification artifacts (spec, plan, research, tasks,
+contracts) live in [`specs/001-card-processing-ecosystem/`](../specs/001-card-processing-ecosystem/).
 
-- [`local-dev-setup.md`](guias/local-dev-setup.md) — desenvolvimento local: serviços na JVM, infra no Docker, setup de IDE.
-- [`deploy-vps-coolify.md`](guias/deploy-vps-coolify.md) — runbook de produção: VPS única com Coolify, ElasticMQ, TLS, backups.
-- [`spec-kit-guide.md`](guias/spec-kit-guide.md) — o pipeline spec-kit usado no desenvolvimento (`/specify → /plan → /tasks → /implement`).
+Every guide and report below is written in both English and Portuguese (`.pt.md` suffix).
 
-## [`relatorios/`](relatorios/) — como o sistema foi construído
+## [`guides/`](guides/) — how to run, develop and deploy
 
-- [`implementation-walkthrough.md`](relatorios/implementation-walkthrough.md) — passo a passo da construção (inglês).
-- [`relatorio-de-implementacao.md`](relatorios/relatorio-de-implementacao.md) — relato cronológico em português, incluindo erros e correções.
-- [`relatorio-de-hardening.md`](relatorios/relatorio-de-hardening.md) — revisão crítica pós-implementação: bugs encontrados, antes/depois de cada correção.
+- [`local-dev-setup.md`](guides/local-dev-setup.md) — local development: services on the JVM, infra in Docker, IDE setup.
+- [`deploy-vps-coolify.md`](guides/deploy-vps-coolify.md) — production runbook: single VPS with Coolify, ElasticMQ, TLS, backups.
+- [`spec-kit-guide.md`](guides/spec-kit-guide.md) — the spec-kit pipeline used during development (`/specify → /plan → /tasks → /implement`).
+
+## [`reports/`](reports/) — how the system was built
+
+- [`implementation-walkthrough.md`](reports/implementation-walkthrough.md) — step-by-step account of the build, including the errors hit along the way and how each was fixed.
+- [`hardening-report.md`](reports/hardening-report.md) — post-implementation critical review: bugs found, before/after of each fix.

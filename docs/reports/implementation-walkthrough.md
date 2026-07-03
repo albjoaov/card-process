@@ -1,5 +1,7 @@
 # Implementation Walkthrough
 
+*[Português](implementation-walkthrough.pt.md)*
+
 This document describes, step by step, how the Card Process was built. The work
 followed **Spec-Driven Development** using [spec-kit](https://github.com/github/spec-kit): every line
 of code traces back to an approved specification, plan and task list.
@@ -113,13 +115,34 @@ springdoc. Validated with unit tests and a Testcontainers (Postgres) API test.
 
 ## 10. Notable problems solved during build
 
+- **Maven reactor: missing child modules** — the first Produto build failed with
+  `Child module .../portador-service/pom.xml does not exist`. The aggregator `pom.xml` listed all
+  four modules, but `portador-service` and `cartao-service` didn't have a `pom.xml` yet — Maven needs
+  every listed POM to be loadable to assemble the reactor, even when building a single module with
+  `-pl produto-service -am`. Fixed by scaffolding both POMs up front.
 - **Testcontainers vs. OrbStack** — docker-java negotiated API `1.32`, which OrbStack rejects (min
-  `1.40`). Pinned the Docker API version via the surefire `argLine` (`api.version=1.41`) so `mvn test`
-  works on modern engines without environment tweaks, and bumped Testcontainers to 1.20.4.
+  `1.40`). Setting `DOCKER_HOST`, a `~/.testcontainers.properties` file, and the `DOCKER_API_VERSION`
+  env var all failed to change the negotiated version — docker-java reads it from the **`api.version`
+  system property**, not that env var. Pinned the Docker API version via the surefire `argLine`
+  (`api.version=1.41`) so `mvn test` works on modern engines without environment tweaks, and bumped
+  Testcontainers to 1.20.4.
 - **Redis cache round-trip** — the `ProductSnapshot.isActive()` accessor was serialized as an extra
   `"active"` field, breaking deserialization on read (every read missed the cache and re-hit the
   Produto Service). Fixed by making the cache serializer tolerant of unknown properties — proven by an
   integration test that asserts exactly one origin call across repeated reads.
+- **LocalStack stuck `unhealthy`** — on `docker compose up -d`, LocalStack never became healthy, so
+  Portador and Cartao (which `depends_on: service_healthy` it) never started, and
+  `awslocal sqs list-queues` came back empty. The queue-provisioning script,
+  `infra/localstack/init-sqs.sh`, wasn't executable (`-rw-r--r--`), and LocalStack silently skips
+  non-executable hooks under `ready.d`. Fixed with `chmod +x infra/localstack/init-sqs.sh` — Git
+  preserves the executable bit, so a fresh clone boots cleanly.
+
+| # | Symptom | Root cause | Fix |
+|---|---------|-----------|-----|
+| 1 | Reactor build fails: module does not exist | Portador/Cartao `pom.xml` didn't exist yet | Scaffold both POMs before the first build |
+| 2 | Testcontainers: "valid Docker environment" | docker-java sends API `1.32`; OrbStack requires ≥1.40; `DOCKER_API_VERSION` is ignored | `-Dapi.version=1.41` in the Surefire `argLine` + Testcontainers 1.20.4 |
+| 3 | Product fetched 3× instead of 1× (cache not hit) | `isActive()` serialized as an extra `"active"` field, breaking cache reads | `FAIL_ON_UNKNOWN_PROPERTIES=false` on the Redis serializer |
+| 4 | LocalStack unhealthy; services don't start | `init-sqs.sh` not executable; queue never created | `chmod +x` on the init script |
 
 ## 11. Post-review hardening: transactional outbox
 

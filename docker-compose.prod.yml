@@ -7,7 +7,7 @@ name: card-process-prod
 #   - Secrets are required (compose fails fast if POSTGRES_PASSWORD / JWT_SECRET are unset).
 #   - Named volumes for Postgres data and queue persistence; daily pg_dump sidecar with retention.
 #   - Memory limits + MaxRAMPercentage so the three JVMs coexist predictably on one box.
-# See docs/deploy-vps-coolify.md for the full runbook.
+# See docs/guides/deploy-vps-coolify.md for the full runbook.
 
 services:
   postgres:

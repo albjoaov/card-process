@@ -1,5 +1,7 @@
 # Local Development Setup
 
+*[Português](local-dev-setup.pt.md)*
+
 This guide covers running the three services locally (on the JVM) while keeping infrastructure dependencies (PostgreSQL, Redis, LocalStack) in Docker. This avoids rebuild/restart cycles on every code change.
 
 ## Prerequisites
