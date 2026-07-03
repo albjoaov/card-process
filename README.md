@@ -133,7 +133,10 @@ Designed for "systems that cannot stop". Behavior under failure:
 | **Produto Service unstable** | The synchronous client is wrapped with Resilience4j: connect/read timeouts, retry with exponential backoff, and a circuit breaker that sheds load from the failing dependency. |
 | **Redis down** | `RedisProductCache` swallows the failure and degrades to a cache miss; the gateway falls back to a direct (resilient) Produto call. Reads still succeed — no `500`. |
 | **Redis down AND Produto unstable (reads)** | Enrichment degrades gracefully: the card is still returned with `product = null` rather than failing, so the cardholder is never left without a response. |
-| **Any unhandled domain error** | A global exception handler maps every error to a semantic HTTP status and an RFC 7807 `application/problem+json` body — never a raw stack trace. |
+| **Cartao Service offline during aggregate** | The Portador -> Cartao client is wrapped with Resilience4j (timeouts, retry with backoff, circuit breaker) and surfaces a semantic `503` problem detail instead of hanging or returning `500`. |
+| **Concurrent duplicate registration (CPF/username)** | The insert is flushed before the SQS publish, so a losing race never emits an issuance message for a rolled-back cardholder; the violation is mapped to `409 Conflict`. |
+| **Any unhandled domain error** | Every handler extends `ResponseEntityExceptionHandler` plus a logged catch-all, so framework and unexpected errors alike return an RFC 7807 `application/problem+json` body — never a raw stack trace. |
+| **Container crash** | All containers run with `restart: unless-stopped`, so a crashed service rejoins the mesh automatically. |
 
 ## Technical decisions
 
@@ -273,6 +276,6 @@ version (`1.41`) so Testcontainers works with engines that require a modern API 
 ├── infra/                      # Postgres + LocalStack init scripts
 ├── postman_collection.json     # Importable API collection
 ├── IMPLEMENTATION.md           # How this was built, step by step (English)
-├── docs/                       # RELATORIO-DE-IMPLEMENTACAO.md (PT, chronological + fixes) + questionnaire answers
+├── docs/                       # RELATORIO-DE-IMPLEMENTACAO.md, RELATORIO-DE-HARDENING.md (PT) + questionnaire answers
 └── specs/001-card-processing-ecosystem/   # spec-kit artifacts (spec, plan, research, tasks, contracts)
 ```

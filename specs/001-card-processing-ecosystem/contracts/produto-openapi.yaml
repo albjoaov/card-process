@@ -45,6 +45,7 @@ paths:
                 $ref: '#/components/schemas/ProductResponse'
         '404':
           $ref: '#/components/responses/ProblemDetail'
+  /products/{id}/cancel:
     patch:
       summary: Cancel a product
       operationId: cancelProduct

@@ -36,7 +36,7 @@ class CardholderServiceTest {
     void registerPersistsCardholderAndPublishesIssuance() {
         UUID productId = UUID.randomUUID();
         when(repository.existsByCpf("39053344705")).thenReturn(false);
-        when(repository.save(any(Cardholder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.saveAndFlush(any(Cardholder.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.register("Maria Silva", "39053344705", LocalDate.of(1990, 5, 12), productId);
 
@@ -47,12 +47,25 @@ class CardholderServiceTest {
     }
 
     @Test
+    void registerNormalizesFormattedCpfBeforePersisting() {
+        when(repository.existsByCpf("39053344705")).thenReturn(false);
+        when(repository.saveAndFlush(any(Cardholder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.register("Maria Silva", "390.533.447-05", LocalDate.of(1990, 5, 12), UUID.randomUUID());
+
+        ArgumentCaptor<Cardholder> captor = ArgumentCaptor.forClass(Cardholder.class);
+        verify(repository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getCpf()).isEqualTo("39053344705");
+    }
+
+    @Test
     void registerRejectsDuplicateCpfAndDoesNotPublish() {
         when(repository.existsByCpf("39053344705")).thenReturn(true);
 
         assertThatThrownBy(() -> service.register(
                 "Maria Silva", "39053344705", LocalDate.of(1990, 5, 12), UUID.randomUUID()))
-                .isInstanceOf(DuplicateCpfException.class);
+                .isInstanceOf(DuplicateCpfException.class)
+                .hasMessageNotContaining("39053344705");
 
         verify(issuancePublisher, never()).publish(any());
     }

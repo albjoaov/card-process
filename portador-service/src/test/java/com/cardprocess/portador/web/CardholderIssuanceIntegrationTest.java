@@ -108,4 +108,39 @@ class CardholderIssuanceIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(cardholder))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void rejectsDuplicateCpfWithConflictAndMaskedDetail() throws Exception {
+        String credentials = "{\"username\":\"operator2\",\"password\":\"secret123\"}";
+        mockMvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON).content(credentials))
+                .andExpect(status().isCreated());
+        MvcResult login = mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON).content(credentials))
+                .andExpect(status().isOk())
+                .andReturn();
+        String token = objectMapper.readTree(login.getResponse().getContentAsString()).get("token").asText();
+
+        String cardholder = "{\"name\":\"Joao Souza\",\"cpf\":\"52998224725\",\"birthDate\":\"1985-03-20\",\"productId\":\""
+                + UUID.randomUUID() + "\"}";
+        MvcResult created = mockMvc.perform(post("/cardholders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content(cardholder))
+                .andExpect(status().isCreated())
+                .andReturn();
+        UUID cardholderId = UUID.fromString(
+                objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText());
+
+        Optional<Message<IssuanceMessage>> drained = sqsTemplate.receive(
+                from -> from.queue(QUEUE).pollTimeout(Duration.ofSeconds(10)), IssuanceMessage.class);
+        assertThat(drained).isPresent();
+        assertThat(drained.get().getPayload().cardholderId()).isEqualTo(cardholderId);
+
+        MvcResult conflict = mockMvc.perform(post("/cardholders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content(cardholder))
+                .andExpect(status().isConflict())
+                .andReturn();
+        String detail = objectMapper.readTree(conflict.getResponse().getContentAsString()).get("detail").asText();
+        assertThat(detail).doesNotContain("52998224725");
+    }
 }
