@@ -254,6 +254,16 @@ docker compose exec localstack awslocal sqs get-queue-attributes \
 docker compose start produto-service
 ```
 
+### Production deployment (VPS + Coolify)
+
+A production-ready variant of the stack lives in
+[`docker-compose.prod.yml`](docker-compose.prod.yml): LocalStack is replaced by
+[ElasticMQ](https://github.com/softwaremill/elasticmq) (same SQS protocol, persistent queues,
+declarative DLQ redrive), secrets are mandatory, infra services are network-internal only, and a
+sidecar takes daily Postgres backups. The full runbook — single VPS managed by
+[Coolify](https://coolify.io), TLS via Traefik/Let's Encrypt, git-push deploys — is in
+[`docs/deploy-vps-coolify.md`](docs/deploy-vps-coolify.md).
+
 ## API reference
 
 OpenAPI/Swagger UI is exposed per service (links above). Contract files are also versioned under

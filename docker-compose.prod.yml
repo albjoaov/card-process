@@ -1,0 +1,175 @@
+name: card-process-prod
+
+# Production compose for a single-VPS deployment managed by Coolify (or plain docker compose).
+# Differences from the dev docker-compose.yml:
+#   - LocalStack is replaced by ElasticMQ (SQS-compatible, H2-persisted, DLQ redrive in config).
+#   - No host ports: infra is network-internal; expose portador-service via the Coolify proxy.
+#   - Secrets are required (compose fails fast if POSTGRES_PASSWORD / JWT_SECRET are unset).
+#   - Named volumes for Postgres data and queue persistence; daily pg_dump sidecar with retention.
+#   - Memory limits + MaxRAMPercentage so the three JVMs coexist predictably on one box.
+# See docs/deploy-vps-coolify.md for the full runbook.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      POSTGRES_USER: cardprocess
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: cardprocess
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardprocess -d cardprocess"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    mem_limit: 160m
+    # Cache-only semantics: bounded memory, LRU eviction, no persistence needed.
+    command: ["redis-server", "--maxmemory", "100mb", "--maxmemory-policy", "allkeys-lru", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  elasticmq:
+    image: softwaremill/elasticmq-native:1.7.1
+    restart: unless-stopped
+    mem_limit: 256m
+    volumes:
+      - ./infra/elasticmq/elasticmq.conf:/opt/elasticmq.conf:ro
+      - elasticmq-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9324/?Action=ListQueues"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  produto-service:
+    build:
+      context: .
+      dockerfile: produto-service/Dockerfile
+    restart: unless-stopped
+    mem_limit: 512m
+    expose:
+      - "8081"
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75.0
+      MANAGEMENT_SERVER_PORT: "9090"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/produto_db
+      SPRING_DATASOURCE_USERNAME: cardprocess
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  portador-service:
+    build:
+      context: .
+      dockerfile: portador-service/Dockerfile
+    restart: unless-stopped
+    mem_limit: 512m
+    expose:
+      - "8082"
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75.0
+      MANAGEMENT_SERVER_PORT: "9090"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/portador_db
+      SPRING_DATASOURCE_USERNAME: cardprocess
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      SPRING_CLOUD_AWS_SQS_ENDPOINT: http://elasticmq:9324
+      SPRING_CLOUD_AWS_REGION_STATIC: us-east-1
+      SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY: elasticmq
+      SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY: elasticmq
+      CARDPROCESS_ISSUANCE_QUEUE: card-issuance-queue
+      CARDPROCESS_SECURITY_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      CARDPROCESS_CARTAO_BASE_URL: http://cartao-service:8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  cartao-service:
+    build:
+      context: .
+      dockerfile: cartao-service/Dockerfile
+    restart: unless-stopped
+    mem_limit: 512m
+    expose:
+      - "8083"
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75.0
+      MANAGEMENT_SERVER_PORT: "9090"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cartao_db
+      SPRING_DATASOURCE_USERNAME: cardprocess
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      SPRING_CLOUD_AWS_SQS_ENDPOINT: http://elasticmq:9324
+      SPRING_CLOUD_AWS_REGION_STATIC: us-east-1
+      SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY: elasticmq
+      SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY: elasticmq
+      CARDPROCESS_ISSUANCE_QUEUE: card-issuance-queue
+      CARDPROCESS_PRODUTO_BASE_URL: http://produto-service:8081
+      CARDPROCESS_PRODUCT_CACHE_TTL: PT10M
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticmq:
+        condition: service_healthy
+      produto-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  db-backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 128m
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: cardprocess
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      BACKUP_INTERVAL_SECONDS: "86400"
+      RETENTION_DAYS: "7"
+    volumes:
+      - ./infra/backup/backup.sh:/backup.sh:ro
+      - db-backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  elasticmq-data:
+  db-backups:

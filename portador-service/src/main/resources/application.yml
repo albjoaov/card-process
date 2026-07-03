@@ -46,7 +46,9 @@ resilience4j:
   retry:
     instances:
       cartaoService:
-        max-attempts: 3
+        # Interactive read path (aggregate): 2 attempts caps worst-case latency at
+        # ~6s (2 x 3s read timeout) instead of ~10s before the 503 surfaces.
+        max-attempts: 2
         wait-duration: 200ms
         enable-exponential-backoff: true
         exponential-backoff-multiplier: 2
