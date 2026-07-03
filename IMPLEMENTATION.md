@@ -121,7 +121,30 @@ springdoc. Validated with unit tests and a Testcontainers (Postgres) API test.
   Produto Service). Fixed by making the cache serializer tolerant of unknown properties — proven by an
   integration test that asserts exactly one origin call across repeated reads.
 
-## 11. Deliverables
+## 11. Post-review hardening: transactional outbox
+
+A review of the registration flow found a classic **dual-write** gap: the cardholder insert
+(PostgreSQL) and the `IssuanceMessage` publish (SQS) were two independent writes inside one
+`@Transactional` method — a publish that succeeded before a failed commit could leave a message
+in flight for a cardholder that never existed. Fixed with a **transactional outbox**:
+
+- `OutboxIssuancePublisher` now implements the `IssuancePublisher` port: it serializes the message
+  and inserts an `outbox_message` row **in the same transaction** as the cardholder (it refuses to
+  run without an active transaction). `CardholderService` did not change.
+- `OutboxRelay` (`@Scheduled`) drains `PENDING` rows in `FOR UPDATE SKIP LOCKED` batches — safe for
+  concurrent instances — publishes to SQS and marks them `PUBLISHED`; failures record the error and
+  reschedule with capped exponential backoff. Delivery is **at-least-once**; the Cartao consumer's
+  idempotency absorbs duplicates.
+- The SQS transport (`SqsIssuanceSender`) talks to `SqsAsyncClient` directly with a success-only
+  queue-URL cache, after discovering that `SqsTemplate` caches a **failed** queue resolution
+  forever (`computeIfAbsent` over a `CompletableFuture` map) — with it, the relay would never
+  recover from an SQS outage without a restart. Also set `queue-not-found-strategy: FAIL` so the
+  producer never silently provisions infrastructure.
+- Proven by `OutboxDeliveryIntegrationTest`: registration during an SQS outage still returns `201`
+  and keeps the row `PENDING` with growing attempts; once the queue appears, the relay delivers
+  and the payload matches the registered cardholder.
+
+## 12. Deliverables
 
 - Source for the three services + `shared-contracts`.
 - `docker-compose.yml` at the root (Postgres, Redis, LocalStack, 3 apps; single-command boot).

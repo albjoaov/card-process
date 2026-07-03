@@ -25,10 +25,16 @@ spring:
         secret-key: ${SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY:test}
       sqs:
         endpoint: ${SPRING_CLOUD_AWS_SQS_ENDPOINT:http://localhost:4566}
+        queue-not-found-strategy: FAIL
 
 cardprocess:
   issuance:
     queue: ${CARDPROCESS_ISSUANCE_QUEUE:card-issuance-queue}
+  outbox:
+    poll-interval: PT1S
+    batch-size: 10
+    initial-backoff: PT1S
+    max-backoff: PT1M
   cartao:
     base-url: ${CARDPROCESS_CARTAO_BASE_URL:http://localhost:8083}
   security:
